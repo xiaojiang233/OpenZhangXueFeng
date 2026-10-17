@@ -8,6 +8,12 @@ build/
 
 # Environment
 .env
+.venv/
+.tmp/
+.pytest_cache/
+.test-data/
+test-results/
+node_modules/
 
 # SSL certs (auto-generated)
 cert.key
@@ -15,6 +21,8 @@ cert.pem
 
 # Data
 data/
+api_settings.json
+.api-settings-*.tmp
 
 # IDE
 .vscode/

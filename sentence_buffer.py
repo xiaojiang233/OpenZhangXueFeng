@@ -21,6 +21,8 @@ class SentenceBuffer:
     """
 
     def __init__(self, min_length: int = 4, max_length: int = 200):
+        if min_length < 1 or max_length < min_length:
+            raise ValueError("Require 1 <= min_length <= max_length")
         self.min_length = min_length
         self.max_length = max_length
         self._buffer = ""
@@ -29,20 +31,16 @@ class SentenceBuffer:
         """Feed new text, return list of complete sentences."""
         self._buffer += text
         sentences = []
-        while True:
-            match = SENTENCE_ENDINGS.search(self._buffer)
-            if not match:
+        while self._buffer:
+            end_idx = next((m.end() for m in SENTENCE_ENDINGS.finditer(self._buffer)
+                            if len(self._buffer[:m.end()].strip()) >= self.min_length), None)
+            if end_idx is None and len(self._buffer) < self.max_length:
                 break
-            end_idx = match.end()
+            end_idx = min(end_idx or self.max_length, self.max_length)
             sentence = self._buffer[:end_idx].strip()
             self._buffer = self._buffer[end_idx:]
-            if len(sentence) >= self.min_length:
+            if sentence:
                 sentences.append(sentence)
-
-        # Fallback: yield if buffer exceeds max_length
-        if len(self._buffer) >= self.max_length:
-            sentences.append(self._buffer.strip())
-            self._buffer = ""
 
         return sentences
 

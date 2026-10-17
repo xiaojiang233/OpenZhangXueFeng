@@ -1,176 +1,521 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>OpenZhangXueFeng — 跟张雪峰唠嗑</title>
-    <link rel="stylesheet" href="/static/style.css">
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#fafaf7" />
+    <meta name="description" content="和 AI 张雪峰一起，把升学与职业的选择聊清楚。" />
+    <title>OpenZhangXueFeng · 把选择聊清楚</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%233b5947'/%3E%3Cpath d='m10 46 15-26 8 13 8-20 14 33' fill='none' stroke='%23edf3d5' stroke-width='4' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
     <script>
-        // Restore theme before paint to avoid flash. Default: dark.
-        try {
-            var t = localStorage.getItem('ozxf-theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', t);
-        } catch (e) {}
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem('ozxf-theme') === 'dark' ? 'dark' : 'light';
+      } catch {}
     </script>
-</head>
-<body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <button class="btn-new-chat" id="btnNewChat">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                    新对话
-                </button>
-            </div>
-            <div class="conversation-list" id="conversationList">
-                <!-- Populated by JS -->
-            </div>
-            <div class="sidebar-footer">
-                <button class="btn-theme-toggle" id="btnThemeToggle" title="切换深色/浅色模式">
-                    <svg class="theme-icon-dark" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                    </svg>
-                    <svg class="theme-icon-light" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="5"/>
-                        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                    </svg>
-                    <span class="theme-toggle-label">浅色模式</span>
-                </button>
-                <span class="sidebar-brand">OpenZhangXueFeng</span>
-            </div>
-        </aside>
-
-        <!-- Main chat area -->
-        <div class="main-area">
-            <!-- Header -->
-            <header class="app-header">
-                <div class="header-left">
-                    <button class="btn-icon btn-menu" id="btnMenu" title="侧边栏">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-                        </svg>
-                    </button>
-                    <div class="avatar">
-                        <span>峰</span>
-                    </div>
-                    <div class="header-info">
-                        <h1>张雪峰</h1>
-                        <span class="status-badge" id="statusBadge">
-                            <span class="status-dot"></span>
-                            <span class="status-text">在线</span>
-                        </span>
-                    </div>
-                </div>
-                <div class="header-right">
-                    <button class="btn-icon btn-voice-toggle" id="btnVoiceToggle" title="切换语音回复模式">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
-                            <path d="M19 10v2a7 7 0 01-14 0v-2"/>
-                            <line x1="12" y1="19" x2="12" y2="23"/>
-                        </svg>
-                    </button>
-                    <button class="btn-icon" id="btnCall" title="语音通话">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-                        </svg>
-                    </button>
-                </div>
-            </header>
-
-            <!-- Chat messages -->
-            <main class="chat-area" id="chatArea">
-                <div class="chat-empty" id="chatEmpty">
-                    <div class="empty-avatar">峰</div>
-                    <h2>跟张雪峰唠唠</h2>
-                    <p>有啥关于选专业、报志愿、考研、找工作的，尽管问</p>
-                    <div class="quick-actions">
-                        <button class="quick-btn" data-text="孩子想学计算机，靠谱吗？">💻 计算机专业怎么样</button>
-                        <button class="quick-btn" data-text="文科生选什么专业好就业？">📚 文科生选什么专业</button>
-                        <button class="quick-btn" data-text="考研到底值不值得？">🎓 考研值不值得</button>
-                        <button class="quick-btn" data-text="金融行业还能进吗？">💰 金融行业还能进吗</button>
-                    </div>
-                </div>
-            </main>
-
-            <!-- Typing indicator -->
-            <div class="typing-indicator" id="typingIndicator">
-                <span></span><span></span><span></span>
-                <span class="typing-text">张雪峰正在输入...</span>
-            </div>
-
-            <!-- Audio indicator -->
-            <div class="audio-indicator" id="audioIndicator">
-                <div class="audio-wave">
-                    <span></span><span></span><span></span><span></span><span></span>
-                </div>
-                <span>正在播放语音...</span>
-            </div>
-
-            <!-- Input area -->
-            <footer class="input-area">
-                <div class="input-row">
-                    <div class="input-wrapper">
-                        <textarea
-                            id="messageInput"
-                            placeholder="有啥问题尽管问... (Enter发送)"
-                            rows="1"
-                        ></textarea>
-                    </div>
-                    <button class="btn-send" id="btnSend" title="发送">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="22" y1="2" x2="11" y2="13"/>
-                            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                        </svg>
-                    </button>
-                    <button class="btn-stop" id="btnStop" title="停止生成" style="display:none">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <rect x="4" y="4" width="16" height="16" rx="2"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="input-hint">
-                    <span id="modeLabel">📝 文字模式</span>
-                </div>
-            </footer>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#messageInput">跳到输入框</a>
+    <div class="app-shell">
+      <button
+        class="sidebar-scrim"
+        id="sidebarScrim"
+        aria-label="关闭导航"
+        tabindex="-1"
+        hidden
+      ></button>
+      <aside class="sidebar" id="sidebar" aria-label="对话导航">
+        <a class="brand" href="/" aria-label="OpenZhangXueFeng 首页"
+          ><span class="brand-mark"
+            ><svg viewBox="0 0 40 40" aria-hidden="true">
+              <path d="m5 29 10-18 6 9 5-13 10 22" /></svg></span
+          ><span
+            ><strong>张雪峰 <small>AI</small></strong
+            ><span class="brand-caption">OpenZhangXueFeng</span></span
+          ></a
+        >
+        <button class="new-chat" id="btnNewChat">
+          <span data-icon="plus"></span>开启新对话<span class="keycap">N</span>
+        </button>
+        <label class="history-search"
+          ><span data-icon="search"></span
+          ><input
+            type="search"
+            id="historySearch"
+            placeholder="搜索历史对话"
+            aria-label="搜索历史对话"
+            autocomplete="off"
+          /><span class="search-shortcut">⌕</span></label
+        >
+        <div class="history-heading"><span>我的对话</span><span id="historyCount">0</span></div>
+        <nav class="conversation-list" id="conversationList" aria-label="历史对话">
+          <div class="history-empty">还没有对话<br /><span>从一个好问题开始吧</span></div>
+        </nav>
+        <div class="sidebar-note">
+          <span class="note-spark">✦</span>
+          <p>把复杂的选择，<br />拆成清晰的下一步。</p>
+          <span class="note-line"></span>
         </div>
-
-        <!-- Voice Call Overlay -->
-        <div class="call-overlay" id="callOverlay">
-            <div class="call-content">
-                <div class="call-avatar" id="callAvatar">
-                    <span>峰</span>
-                </div>
-                <div class="call-status" id="callStatus">点击麦克风开始说话</div>
-                <div class="call-timer" id="callTimer"></div>
-                <div class="call-waveform" id="callWaveform">
-                    <span></span><span></span><span></span><span></span><span></span>
-                </div>
-                <div class="call-actions">
-                    <button class="btn-call-mic" id="btnCallMic" title="点击说话">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
-                            <path d="M19 10v2a7 7 0 01-14 0v-2"/>
-                            <line x1="12" y1="19" x2="12" y2="23"/>
-                        </svg>
-                    </button>
-                    <button class="btn-call-end" id="btnCallEnd" title="挂断">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="1" y1="1" x2="23" y2="23" stroke-width="3"/>
-                        </svg>
-                    </button>
-                </div>
-                <div class="call-transcript user" id="callUserText"></div>
-                <div class="call-transcript assistant" id="callAssistantText"></div>
-            </div>
+        <div class="sidebar-footer">
+          <button id="btnApiSettings" class="footer-button">
+            <span data-icon="settings"></span>API 设置
+          </button>
+          <button id="btnHelp" class="footer-button"><span data-icon="help"></span>使用指南</button
+          ><button
+            id="btnThemeToggle"
+            class="icon-button"
+            aria-label="切换深色模式"
+            title="切换深色模式"
+          >
+            <span data-icon="sun"></span>
+          </button>
         </div>
+        <div class="sidebar-version">
+          <span class="tiny-dot"></span>独立开源项目<span>v2.0</span>
+        </div>
+      </aside>
+      <div class="main-area">
+        <header class="app-header">
+          <div class="header-left">
+            <button
+              class="icon-button menu-button"
+              id="btnMenu"
+              aria-label="展开导航"
+              aria-expanded="false"
+              aria-controls="sidebar"
+            >
+              <span data-icon="menu"></span></button
+            ><span class="header-title">咨询工作台</span><span class="header-divider"></span
+            ><span class="header-subtitle">陪你看见更多可能</span>
+          </div>
+          <div class="header-actions">
+            <span class="connection-status" id="statusBadge" role="status"
+              ><i></i><span id="statusText">正在连接</span></span
+            ><span class="header-separator"></span
+            ><button
+              class="voice-toggle"
+              id="btnVoiceToggle"
+              aria-pressed="false"
+              title="开启语音回复"
+            >
+              <span data-icon="volume"></span><span>语音回复</span></button
+            ><button class="call-button" id="btnCall">
+              <span data-icon="phone"></span><span>语音通话</span>
+            </button>
+          </div>
+        </header>
+        <div class="service-notice" id="serviceNotice" hidden>
+          <span data-icon="help"></span><span id="serviceNoticeText"></span
+          ><button id="btnConfigureApi" class="notice-configure">配置 API</button
+          ><button id="btnRefreshHealth" class="notice-refresh" title="重新检查服务">
+            <span data-icon="refresh"></span><span>重新检查</span>
+          </button>
+        </div>
+        <main class="chat-area" id="chatArea" aria-label="咨询对话">
+          <section class="welcome" id="chatEmpty" aria-labelledby="welcomeTitle">
+            <div class="welcome-topline">
+              <span class="welcome-pill"><span class="tiny-dot"></span>你的升学与职业咨询伙伴</span
+              ><span class="edition">LET’S FIND YOUR WAY</span>
+            </div>
+            <div class="hero">
+              <div class="hero-copy">
+                <div class="hero-eyebrow">你好，未来的探索者</div>
+                <h1 id="welcomeTitle">每一个选择，<br />都值得<span>认真聊聊。</span></h1>
+                <p>选专业、报志愿，还是寻找职业方向？<br />把你的困惑告诉我，我们一起理清思路。</p>
+              </div>
+              <div class="hero-art" aria-hidden="true">
+                <div class="orbit orbit-one"></div>
+                <div class="orbit orbit-two"></div>
+                <div class="art-axis axis-one"></div>
+                <div class="art-axis axis-two"></div>
+                <span class="orbit-point point-one"></span
+                ><span class="orbit-point point-two"></span
+                ><span class="orbit-point point-three"></span>
+                <div class="compass-center">
+                  <svg viewBox="0 0 100 100">
+                    <path class="compass-back" d="m68 21-8 39-38 18 17-39Z" />
+                    <path class="compass-front" d="m68 21-29 18 21 21Z" />
+                    <circle cx="50" cy="50" r="4" />
+                  </svg>
+                </div>
+                <span class="art-label label-top">发现你的热爱</span
+                ><span class="art-label label-bottom">找到自己的方向 <span>↗</span></span
+                ><span class="art-coordinate">A PATH OF YOUR OWN</span>
+              </div>
+            </div>
+            <div class="topics-heading">
+              <div><span class="small-line"></span>不妨从这里聊起</div>
+              <span>一个好问题，让选择更清晰</span>
+            </div>
+            <div class="prompt-grid">
+              <button
+                class="prompt-card"
+                data-text="我想了解计算机专业：适合什么样的学生，就业方向有哪些？"
+              >
+                <span class="prompt-icon mint" data-icon="book"></span
+                ><span class="prompt-kicker">01 / 专业选择</span
+                ><strong>热门专业，真的适合我吗？</strong
+                ><span class="prompt-description">从兴趣、能力到未来就业，一起看清楚</span
+                ><span class="prompt-arrow" data-icon="arrow"></span>
+              </button>
+              <button
+                class="prompt-card"
+                data-text="高考报志愿时，应该优先选学校、专业还是城市？请帮我梳理决策思路。"
+              >
+                <span class="prompt-icon sand" data-icon="compass"></span
+                ><span class="prompt-kicker">02 / 志愿规划</span
+                ><strong>学校、专业、城市，怎么选？</strong
+                ><span class="prompt-description">梳理关键因素，做更适合自己的决定</span
+                ><span class="prompt-arrow" data-icon="arrow"></span>
+              </button>
+              <button
+                class="prompt-card"
+                data-text="我正在纠结考研还是直接就业，应该从哪些维度判断？"
+              >
+                <span class="prompt-icon lavender" data-icon="cap"></span
+                ><span class="prompt-kicker">03 / 考研升学</span
+                ><strong>考研，还是直接去工作？</strong
+                ><span class="prompt-description">让深造的投入，回应你真正的目标</span
+                ><span class="prompt-arrow" data-icon="arrow"></span>
+              </button>
+              <button
+                class="prompt-card"
+                data-text="我对未来职业方向很迷茫，请通过一些问题帮我找到适合自己的职业路径。"
+              >
+                <span class="prompt-icon peach" data-icon="case"></span
+                ><span class="prompt-kicker">04 / 职业发展</span
+                ><strong>有点迷茫，未来该往哪走？</strong
+                ><span class="prompt-description">盘点你的优势，寻找可行动的下一步</span
+                ><span class="prompt-arrow" data-icon="arrow"></span>
+              </button>
+            </div>
+            <div class="welcome-bottom">
+              <span>✧</span>不急着给人生标准答案，先找到属于你的好问题。
+            </div>
+          </section>
+          <section class="messages" id="messages" aria-label="消息记录" hidden></section>
+        </main>
+        <div class="composer-region">
+          <div class="activity-bar">
+            <span id="typingIndicator" role="status" hidden
+              ><span class="typing-dots"><i></i><i></i><i></i></span
+              ><span id="typingText">正在整理思路…</span></span
+            ><button id="audioIndicator" class="audio-indicator" hidden title="停止播放">
+              <span data-icon="volume"></span>正在播放 · 点击停止</button
+            ><button class="scroll-latest" id="btnScrollLatest" hidden>回到最新消息 ↓</button>
+          </div>
+          <form class="composer" id="composerForm">
+            <label class="sr-only" for="messageInput">你的问题</label
+            ><textarea
+              id="messageInput"
+              rows="2"
+              maxlength="8000"
+              placeholder="说说你的情况，或写下你正在纠结的问题…"
+              aria-describedby="composerHint"
+              enterkeyhint="send"
+            ></textarea>
+            <div class="composer-bottom">
+              <div class="composer-mode">
+                <span data-icon="chat"></span><span id="modeLabel">文字咨询</span
+                ><span class="mode-divider"></span
+                ><span class="context-hint">具体一点，会更有帮助</span>
+              </div>
+              <div class="composer-actions">
+                <span class="char-counter" id="charCounter">0 / 8000</span
+                ><button
+                  class="send-button"
+                  id="btnSend"
+                  type="submit"
+                  aria-label="发送问题"
+                  title="发送问题"
+                >
+                  <span data-icon="send"></span></button
+                ><button
+                  class="stop-button"
+                  id="btnStop"
+                  type="button"
+                  aria-label="停止生成"
+                  title="停止生成"
+                  hidden
+                >
+                  <span></span>
+                </button>
+              </div>
+            </div>
+          </form>
+          <div class="composer-hint" id="composerHint">
+            <span>AI 角色模拟 · 非张雪峰本人，重要决策请核实官方信息</span
+            ><span class="keyboard-hint">Enter 发送 <i>·</i> Shift + Enter 换行</span>
+          </div>
+        </div>
+      </div>
     </div>
-
-    <script src="/static/app.js"></script>
-</body>
+    <dialog id="callDialog" class="call-dialog" aria-labelledby="callTitle">
+      <div class="dialog-top">
+        <span>VOICE CONSULTATION</span
+        ><button id="btnCallEnd" class="icon-button" aria-label="结束通话">
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <div class="call-avatar" id="callAvatar">峰<span>AI</span></div>
+      <h2 id="callTitle">慢慢说，我在听。</h2>
+      <p id="callStatus" role="status">点击麦克风开始说话，再次点击结束录音</p>
+      <div class="call-timer" id="callTimer">00:00</div>
+      <div class="call-transcript" id="callUserText"></div>
+      <div class="call-transcript assistant" id="callAssistantText"></div>
+      <div class="call-controls">
+        <button id="btnCallMic" class="call-mic" aria-label="开始录音" aria-pressed="false">
+          <span data-icon="mic"></span></button
+        ><button id="btnCallHangup" class="call-hangup" aria-label="结束通话">
+          <span data-icon="phone"></span>
+        </button>
+      </div>
+      <p class="call-note">录音结束后识别文字，再为你生成语音回复</p>
+    </dialog>
+    <dialog id="apiSettingsDialog" class="settings-dialog" aria-labelledby="apiSettingsTitle">
+      <form id="apiSettingsForm" autocomplete="off">
+        <div class="settings-header">
+          <div>
+            <span class="settings-eyebrow">CONNECT YOUR SERVICES</span>
+            <h2 id="apiSettingsTitle">API 服务配置</h2>
+            <p>连接你的模型、语音与搜索服务，保存后立即生效。</p>
+          </div>
+          <button
+            id="btnApiSettingsClose"
+            class="icon-button"
+            type="button"
+            aria-label="关闭 API 配置"
+          >
+            <span data-icon="close"></span>
+          </button>
+        </div>
+        <div class="settings-body">
+          <p id="apiSettingsMessage" class="settings-message" role="status" aria-live="polite">
+            正在读取配置…
+          </p>
+          <fieldset id="apiSettingsFields" disabled>
+            <section class="settings-service" data-service="chat">
+              <div class="settings-service-heading">
+                <div>
+                  <h3>DeepSeek <span>文字模型</span></h3>
+                  <p>也支持 OpenAI 兼容接口。</p>
+                </div>
+                <span id="chatConfigured" class="settings-badge">未配置</span>
+              </div>
+              <label class="settings-field" for="deepseekApiKey">API Key</label>
+              <div class="settings-secret">
+                <input
+                  id="deepseekApiKey"
+                  name="deepseek_api_key"
+                  type="password"
+                  maxlength="512"
+                  placeholder="输入 API Key"
+                  autocomplete="new-password"
+                  spellcheck="false"
+                /><button
+                  type="button"
+                  data-reveal="deepseekApiKey"
+                  aria-label="显示新输入的模型密钥"
+                  aria-pressed="false"
+                >
+                  显示
+                </button>
+              </div>
+              <label class="settings-clear" hidden
+                ><input type="checkbox" data-clear="deepseek_api_key" />清除已保存的模型密钥</label
+              >
+              <div class="settings-columns">
+                <div>
+                  <label class="settings-field" for="deepseekBaseUrl">API 地址</label
+                  ><input
+                    id="deepseekBaseUrl"
+                    name="deepseek_base_url"
+                    type="url"
+                    required
+                    maxlength="2048"
+                    placeholder="https://api.deepseek.com"
+                    spellcheck="false"
+                  />
+                </div>
+                <div>
+                  <label class="settings-field" for="deepseekModel">模型名称</label
+                  ><input
+                    id="deepseekModel"
+                    name="deepseek_model"
+                    required
+                    maxlength="128"
+                    placeholder="deepseek-v4-pro"
+                    spellcheck="false"
+                  />
+                </div>
+              </div>
+              <div class="settings-test-row">
+                <button type="button" class="settings-test" data-test-service="chat">
+                  <span data-icon="refresh"></span>测试模型连接</button
+                ><span class="settings-test-result" data-test-result="chat" role="status"></span>
+              </div>
+            </section>
+            <section class="settings-service" data-service="voice">
+              <div class="settings-service-heading">
+                <div>
+                  <h3>Fish Audio <span>语音回复与识别</span></h3>
+                  <p>语音服务可以单独启用。</p>
+                </div>
+                <span id="voiceConfigured" class="settings-badge">未配置</span>
+              </div>
+              <label class="settings-field" for="fishAudioApiKey">API Key</label>
+              <div class="settings-secret">
+                <input
+                  id="fishAudioApiKey"
+                  name="fish_audio_api_key"
+                  type="password"
+                  maxlength="512"
+                  placeholder="输入 API Key"
+                  autocomplete="new-password"
+                  spellcheck="false"
+                /><button
+                  type="button"
+                  data-reveal="fishAudioApiKey"
+                  aria-label="显示新输入的语音密钥"
+                  aria-pressed="false"
+                >
+                  显示
+                </button>
+              </div>
+              <label class="settings-clear" hidden
+                ><input
+                  type="checkbox"
+                  data-clear="fish_audio_api_key"
+                />清除已保存的语音密钥</label
+              >
+              <div class="settings-columns">
+                <div>
+                  <label class="settings-field" for="fishAudioVoiceId">音色 ID</label
+                  ><input
+                    id="fishAudioVoiceId"
+                    name="fish_audio_voice_id"
+                    maxlength="128"
+                    placeholder="Fish Audio Reference ID"
+                    spellcheck="false"
+                  />
+                </div>
+                <div>
+                  <label class="settings-field" for="fishAudioLatency">语音延迟</label
+                  ><select id="fishAudioLatency" name="fish_audio_latency">
+                    <option value="balanced">均衡</option>
+                    <option value="normal">优先音质</option>
+                    <option value="low">优先速度</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-test-row">
+                <button type="button" class="settings-test" data-test-service="voice">
+                  <span data-icon="refresh"></span>测试语音连接</button
+                ><span class="settings-test-result" data-test-result="voice" role="status"></span>
+              </div>
+              <p class="settings-field-note">语音测试会生成“你好”短句，使用服务账户额度。</p>
+            </section>
+            <section class="settings-service" data-service="search">
+              <div class="settings-service-heading">
+                <div>
+                  <h3>LangSearch <span>联网搜索</span></h3>
+                  <p>获取实时资料并为回答标注来源。</p>
+                </div>
+                <span id="searchConfigured" class="settings-badge">未配置</span>
+              </div>
+              <label class="settings-field" for="langsearchApiKey">API Key</label>
+              <div class="settings-secret">
+                <input
+                  id="langsearchApiKey"
+                  name="langsearch_api_key"
+                  type="password"
+                  maxlength="512"
+                  placeholder="输入 API Key"
+                  autocomplete="new-password"
+                  spellcheck="false"
+                /><button
+                  type="button"
+                  data-reveal="langsearchApiKey"
+                  aria-label="显示新输入的搜索密钥"
+                  aria-pressed="false"
+                >
+                  显示
+                </button>
+              </div>
+              <label class="settings-clear" hidden
+                ><input
+                  type="checkbox"
+                  data-clear="langsearch_api_key"
+                />清除已保存的搜索密钥</label
+              >
+              <div class="settings-test-row">
+                <button type="button" class="settings-test" data-test-service="search">
+                  <span data-icon="refresh"></span>测试搜索连接</button
+                ><span class="settings-test-result" data-test-result="search" role="status"></span>
+              </div>
+              <p class="settings-field-note">搜索测试会请求一次搜索，使用服务账户额度。</p>
+            </section>
+          </fieldset>
+          <p class="settings-storage-note">
+            已有密钥不会回显，留空表示保留。密钥仅保存到服务端本地，不写入浏览器存储。
+          </p>
+        </div>
+        <div class="settings-footer">
+          <button type="button" id="btnApiSettingsCancel">取消</button
+          ><button type="submit" id="btnApiSettingsSave" class="settings-save" disabled>
+            保存并应用
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="helpDialog" class="help-dialog" aria-labelledby="helpTitle">
+      <div class="dialog-top">
+        <span>GETTING STARTED</span
+        ><button class="icon-button" id="btnHelpClose" aria-label="关闭指南">
+          <span data-icon="close"></span>
+        </button>
+      </div>
+      <h2 id="helpTitle">聊得具体，答案更有用。</h2>
+      <p>
+        告诉我你的年级、所在省份、成绩区间，以及兴趣和顾虑。我们可以一步步梳理专业、院校与职业方向。
+      </p>
+      <div class="help-step">
+        <span>01</span>
+        <div>
+          <strong>从真实情况出发</strong>
+          <p>比如：“高三，山东，物化生，550 分左右，对机械感兴趣。”</p>
+        </div>
+      </div>
+      <div class="help-step">
+        <span>02</span>
+        <div>
+          <strong>把问题继续追问下去</strong>
+          <p>同一个对话会保留上下文，随时可以补充信息或比较不同方案。</p>
+        </div>
+      </div>
+      <div class="help-step">
+        <span>03</span>
+        <div>
+          <strong>用官方信息验证选择</strong>
+          <p>招生政策、分数线和专业要求，请以学校及考试院公布的信息为准。</p>
+        </div>
+      </div>
+      <p class="help-service" id="helpService">正在检查服务状态…</p>
+    </dialog>
+    <dialog id="deleteDialog" class="delete-dialog" aria-labelledby="deleteTitle">
+      <h2 id="deleteTitle">删除这段对话？</h2>
+      <p id="deleteDescription">删除后无法恢复。</p>
+      <div class="delete-actions">
+        <button id="btnDeleteCancel">保留对话</button
+        ><button id="btnDeleteConfirm" class="danger-button">确认删除</button>
+      </div>
+    </dialog>
+    <div class="toast-stack" id="toastStack" role="status" aria-live="polite"></div>
+    <noscript><p class="noscript">请启用 JavaScript 后使用咨询工作台。</p></noscript>
+    <script type="module" src="/static/app.js"></script>
+  </body>
 </html>

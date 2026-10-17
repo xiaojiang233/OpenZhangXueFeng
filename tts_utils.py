@@ -68,13 +68,18 @@ def strip_markdown(text: str) -> str:
     return text
 
 
-def _parse_cited_numbers(text: str) -> set[int]:
+def _parse_cited_numbers(text: str, limit: int = 1000) -> set[int]:
     """Extract all unique citation numbers from text like '...[1]...[2,3]...'"""
     nums = set()
-    for m in re.finditer(r'\[(\d+(?:[,\-\s]\d+)*)\]', text):
-        for part in re.split(r'[,\-\s]+', m.group(1)):
-            if part.isdigit():
-                nums.add(int(part))
+    def bounded_number(value: str) -> int:
+        value = value.lstrip('0') or '0'
+        return limit + 1 if len(value) > len(str(limit)) else int(value)
+
+    for m in re.finditer(r'\[(\d+(?:[,\-\s]+\d+)*)\]', text):
+        for part in re.finditer(r'(\d+)(?:\s*-\s*(\d+))?', m.group(1)):
+            first = bounded_number(part.group(1))
+            last = bounded_number(part.group(2)) if part.group(2) else first
+            nums.update(range(max(1, first), min(limit, last) + 1))
     return nums
 
 
@@ -88,12 +93,12 @@ def filter_citations(full_response: str, citations: list[dict]) -> tuple[str, li
     if not citations:
         return full_response, []
 
-    cited = _parse_cited_numbers(full_response)
+    cited = _parse_cited_numbers(full_response, len(citations))
     if not cited:
         return full_response, []
 
     # Filter to cited entries; keep original indices (1-based)
-    max_idx = max(cited)
+    max_idx = min(max(cited), len(citations))
     filtered = []
     for i in range(max_idx):
         c = citations[i] if i < len(citations) else None

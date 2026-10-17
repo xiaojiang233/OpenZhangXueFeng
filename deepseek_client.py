@@ -11,7 +11,7 @@ import re
 from typing import AsyncGenerator, Callable, Awaitable
 
 from openai import AsyncOpenAI
-from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
+from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, Settings
 
 logger = logging.getLogger("openzxf.llm")
 
@@ -114,121 +114,96 @@ async def chat_stream_agent(
     citations_out: list,
     voice_mode: bool = False,
     citation_offset: int = 0,
+    search_enabled: bool = True,
+    settings: Settings | None = None,
 ) -> AsyncGenerator[str, None]:
+    """Stream each answer once, carrying streamed tool calls into the next turn.
+
+    Both the HTTP stream and client close on cancellation. The final iteration
+    omits tools to guarantee a bounded search loop.
     """
-    Agent loop with tool calling.
-
-    Args:
-        messages: Chat history
-        search_func: async (query) -> (text, citations_list)
-        citations_out: mutable list for accumulated citations
-        voice_mode: if True, add voice-friendly brevity instructions
-        citation_offset: starting index for multi-turn citation numbering
-
-    Yields:
-        Text chunks from the final streaming LLM response.
-    """
-    client = AsyncOpenAI(
-        api_key=DEEPSEEK_API_KEY,
-        base_url=DEEPSEEK_BASE_URL,
-    )
-
     system_content = _build_system_prompt(voice_mode)
+    if not search_enabled:
+        system_content += "\n当前联网搜索未配置。不要编造最新数据或来源，明确说明需要核实的信息。"
     chat_messages: list[dict] = [
         {"role": "system", "content": system_content},
         *messages,
     ]
 
-    for iteration in range(MAX_AGENT_ITERATIONS):
-        response = await client.chat.completions.create(
-            model=DEEPSEEK_MODEL,
-            messages=chat_messages,
-            tools=TOOLS,
-            tool_choice="auto",
-            temperature=1.0,
-        )
+    async with AsyncOpenAI(
+        api_key=settings.deepseek_api_key if settings else DEEPSEEK_API_KEY,
+        base_url=settings.deepseek_base_url if settings else DEEPSEEK_BASE_URL,
+        timeout=60.0, max_retries=1,
+    ) as client:
+        for iteration in range(MAX_AGENT_ITERATIONS + 1):
+            allow_tools = search_enabled and iteration < MAX_AGENT_ITERATIONS
+            options = {"tools": TOOLS, "tool_choice": "auto"} if allow_tools else {}
+            stream = await client.chat.completions.create(
+                model=settings.deepseek_model if settings else DEEPSEEK_MODEL,
+                messages=chat_messages,
+                stream=True, temperature=1.0, max_tokens=4096, **options,
+            )
+            calls: dict[int, dict] = {}
+            content_parts: list[str] = []
+            reasoning_parts: list[str] = []
+            async with stream:
+                async for chunk in stream:
+                    if not chunk.choices:  # Optional usage-only terminal chunk.
+                        continue
+                    delta = chunk.choices[0].delta
+                    reasoning = getattr(delta, "reasoning_content", None)
+                    if reasoning:
+                        reasoning_parts.append(reasoning)
+                    if delta.content:
+                        content_parts.append(delta.content)
+                        yield delta.content
+                    for part in delta.tool_calls or []:
+                        call = calls.setdefault(part.index, {
+                            "id": "", "type": "function",
+                            "function": {"name": "", "arguments": ""},
+                        })
+                        if part.id:
+                            call["id"] = part.id
+                        if part.function:
+                            call["function"]["name"] += part.function.name or ""
+                            call["function"]["arguments"] += part.function.arguments or ""
 
-        choice = response.choices[0]
-        msg = choice.message
+            if not calls:
+                return
+            if not allow_tools:
+                raise RuntimeError("模型在禁用工具的最后一轮仍返回了工具请求")
+            assistant = {
+                "role": "assistant", "content": "".join(content_parts),
+                "tool_calls": [calls[i] for i in sorted(calls)],
+            }
+            if reasoning_parts:
+                assistant["reasoning_content"] = "".join(reasoning_parts)
+            chat_messages.append(assistant)
 
-        # ── Tool calls ──
-        if msg.tool_calls:
-            tool_call_dicts = [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    },
-                }
-                for tc in msg.tool_calls
-            ]
-            chat_messages.append({
-                "role": "assistant",
-                "tool_calls": tool_call_dicts,
-                "content": msg.content or "",
-            })
-
-            for tc in msg.tool_calls:
-                if tc.function.name != "web_search":
-                    continue
+            for call in assistant["tool_calls"]:
+                function = call["function"]
                 try:
-                    args = json.loads(tc.function.arguments)
-                    query = args.get("query", "")
-                except json.JSONDecodeError:
-                    query = tc.function.arguments
-
-                logger.info(
-                    f"Agent[{iteration + 1}]: LLM searching '{query[:60]}...'"
-                )
-
-                search_text, cites = await search_func(query)
-
-                # Adjust citation numbers for multi-search
-                numbered = _renumber_citations(search_text, citation_offset)
-                citation_offset += len(cites)
-                citations_out.extend(cites)
-
+                    if function["name"] != "web_search":
+                        raise ValueError("未知工具，请使用 web_search")
+                    args = json.loads(function["arguments"])
+                    query = args.get("query") if isinstance(args, dict) else None
+                    if not isinstance(query, str) or not query.strip() or len(query) > 1000:
+                        raise ValueError("搜索关键词必须为 1–1000 字的文本")
+                except (ValueError, TypeError) as exc:
+                    result = f"工具参数错误：{exc}。请修正后重试。"
+                else:
+                    try:
+                        search_text, cites = await search_func(query.strip())
+                    except Exception:
+                        logger.warning("Search provider unavailable", exc_info=True)
+                        result = "搜索服务暂时不可用。请说明信息限制，不要编造来源或最新数据。"
+                    else:
+                        result = _renumber_citations(search_text, citation_offset)
+                        citation_offset += len(cites)
+                        citations_out.extend(cites)
                 chat_messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": numbered,
+                    "role": "tool", "tool_call_id": call["id"], "content": result,
                 })
-
-            continue  # another agent iteration
-
-        # ── Final answer — stream token-by-token ──
-        stream = await client.chat.completions.create(
-            model=DEEPSEEK_MODEL,
-            messages=chat_messages,
-            stream=True,
-            temperature=1.0,
-            max_tokens=4096,
-        )
-        async for chunk in stream:
-            delta = chunk.choices[0].delta
-            if delta.content:
-                yield delta.content
-        return
-
-    # Max iterations exhausted — force response
-    logger.warning(f"Agent max iterations ({MAX_AGENT_ITERATIONS}) reached")
-    chat_messages.append({
-        "role": "user",
-        "content": "请基于已有信息直接回答，不要再搜索了。",
-    })
-    stream = await client.chat.completions.create(
-        model=DEEPSEEK_MODEL,
-        messages=chat_messages,
-        stream=True,
-        temperature=1.0,
-        max_tokens=4096,
-    )
-    async for chunk in stream:
-        delta = chunk.choices[0].delta
-        if delta.content:
-            yield delta.content
 
 
 def _renumber_citations(text: str, offset: int) -> str:
@@ -240,10 +215,10 @@ def _renumber_citations(text: str, offset: int) -> str:
         parts = re.split(r'([,\-\s]+)', m.group(1))
         out = []
         for p in parts:
-            if p.isdigit():
+            if p.isdigit() and len(p.lstrip('0')) < 10:
                 out.append(str(int(p) + offset))
             else:
                 out.append(p)
         return '[' + ''.join(out) + ']'
 
-    return re.sub(r'\[(\d+(?:[,\-\s]\d+)*)\]', _shift, text)
+    return re.sub(r'\[(\d+(?:[,\-\s]+\d+)*)\]', _shift, text)

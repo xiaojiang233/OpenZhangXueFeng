@@ -1,0 +1,14 @@
+{
+  "name": "open-zhangxuefeng-ui-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:browser": "node tests/browser_smoke.mjs",
+    "format": "prettier --write \"static/**/*.{js,css,html}\" \"tests/*.mjs\" package.json",
+    "format:check": "prettier --check \"static/**/*.{js,css,html}\" \"tests/*.mjs\" package.json"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1",
+    "prettier": "3.9.10"
+  }
+}

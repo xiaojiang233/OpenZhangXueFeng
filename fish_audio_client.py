@@ -8,11 +8,13 @@ API reference: https://docs.fish.audio
 """
 
 import httpx
+import msgpack
 
 from config import (
     FISH_AUDIO_API_KEY,
     FISH_AUDIO_VOICE_ID,
-    FISH_AUDIO_FORMAT,
+    FISH_AUDIO_LATENCY,
+    Settings,
 )
 
 
@@ -24,12 +26,12 @@ FISH_AUDIO_ASR_URL = "https://api.fish.audio/v1/asr"
 # TTS
 # ═══════════════════════════════════════════════════════════
 
-async def tts_sentence(text: str) -> bytes:
+async def tts_sentence(text: str, *, settings: Settings | None = None) -> bytes:
     """
     Convert a single sentence to speech via Fish Audio HTTP API.
 
     IMPORTANT: Caller should strip markdown from `text` before calling.
-    Returns raw audio bytes in the configured format (default: PCM 44100Hz Int16 mono).
+    Returns PCM 44100Hz Int16 mono, the browser audio transport contract.
     """
     if not text.strip():
         return b""
@@ -38,13 +40,15 @@ async def tts_sentence(text: str) -> bytes:
         response = await client.post(
             FISH_AUDIO_TTS_URL,
             headers={
-                "Authorization": f"Bearer {FISH_AUDIO_API_KEY}",
+                "Authorization": f"Bearer {settings.fish_audio_api_key if settings else FISH_AUDIO_API_KEY}",
                 "Content-Type": "application/json",
             },
             json={
                 "text": text,
-                "reference_id": FISH_AUDIO_VOICE_ID,
-                "format": FISH_AUDIO_FORMAT,
+                "reference_id": settings.fish_audio_voice_id if settings else FISH_AUDIO_VOICE_ID,
+                "format": "pcm",
+                "sample_rate": 44100,
+                "latency": settings.fish_audio_latency if settings else FISH_AUDIO_LATENCY,
             },
         )
         response.raise_for_status()
@@ -59,6 +63,8 @@ async def transcribe_audio(
     audio_bytes: bytes,
     language: str | None = None,
     ignore_timestamps: bool = True,
+    *,
+    settings: Settings | None = None,
 ) -> dict:
     """
     Transcribe audio to text using Fish Audio ASR.
@@ -76,14 +82,8 @@ async def transcribe_audio(
     if not audio_bytes:
         return {"text": "", "duration": 0, "segments": []}
 
-    data: dict = {"ignore_timestamps": str(ignore_timestamps).lower()}
-    if language:
-        data["language"] = language
-
     # Fish Audio ASR only accepts application/form-data or application/msgpack.
     # We use msgpack (binary serialization) for reliability.
-    import msgpack
-
     payload: dict = {
         "audio": audio_bytes,
         "ignore_timestamps": ignore_timestamps,
@@ -91,20 +91,16 @@ async def transcribe_audio(
     if language:
         payload["language"] = language
 
-    packed = msgpack.packb(payload)
+    packed = msgpack.packb(payload, use_bin_type=True)
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
             FISH_AUDIO_ASR_URL,
             headers={
-                "Authorization": f"Bearer {FISH_AUDIO_API_KEY}",
+                "Authorization": f"Bearer {settings.fish_audio_api_key if settings else FISH_AUDIO_API_KEY}",
                 "Content-Type": "application/msgpack",
             },
             content=packed,
         )
-        if response.status_code >= 400:
-            import logging
-            _log = logging.getLogger("openzxf.asr")
-            _log.error(f"ASR {response.status_code}: {response.text[:1000]}")
         response.raise_for_status()
         return response.json()
